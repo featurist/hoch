@@ -1,0 +1,64 @@
+"use strict";
+
+var mdeps = require('module-deps');
+var extend = require('lowscore/extend');
+var debug = require('debug')('hoch');
+
+class Dependencies {
+  constructor(options) {
+    this.cache = {};
+    this.packageCache = {};
+    this.fileCache = {};
+    this.idForFilename = {};
+    this.options = options;
+  }
+
+  changed(filenames) {
+    filenames.forEach(filename => {
+      debug('refreshing', filename);
+      var id = this.idForFilename[filename];
+      delete this.cache[id];
+    });
+  }
+
+  deps(filenames) {
+    return new Promise((resolve, reject) => {
+      var files = [];
+
+      var md = mdeps(extend({
+          cache: this.cache,
+          packageCache: this.packageCache,
+          fileCache: this.fileCache
+      }, this.options))
+
+      filenames.forEach((filename, i) => {
+        debug('loading', filename);
+        if (i < filenames.length - 1) {
+          md.write({ file: filename });
+        } else {
+          md.end({ file: filename });
+        }
+      })
+
+      md.on('data', function (file) {
+        files.push(file);
+      });
+
+      md.on('transform', function (transform, file) {
+        debug('compiling', file);
+      });
+
+      md.on('error', reject);
+      md.on('end', () => resolve(files));
+    }).then(files => {
+      files.forEach(file => {
+        this.idForFilename[file.file] = file.id;
+        this.cache[file.id] = file;
+      });
+
+      return files;
+    });
+  }
+}
+
+module.exports = Dependencies;

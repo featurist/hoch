@@ -1,0 +1,26 @@
+{
+  "name": "hoch",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "browserify-middleware": "7.0.0",
+    "chokidar": "1.4.3",
+    "combine-source-map": "0.7.2",
+    "convert-source-map": "1.2.0",
+    "debug": "2.2.0",
+    "express": "4.13.4",
+    "lowscore": "1.8.0",
+    "mocha": "2.4.5",
+    "module-deps": "4.0.5",
+    "multi-glob": "1.0.1",
+    "socket.io": "1.4.6",
+    "socket.io-client": "1.4.6"
+  }
+}
