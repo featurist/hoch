@@ -1,5 +1,6 @@
 var express = require('express');
-var browserify = require('browserify-middleware');
+var browserifyMiddleware = require('browserify-middleware');
+var browserify = require('browserify');
 var http = require('http');
 var Files = require('./files');
 var stitch = require('./stitch');
@@ -15,7 +16,7 @@ var io = require('socket.io')(server);
 var clientIo = io.of('/client');
 var runnerIo = io.of('/runner');
 
-app.use('/', browserify(__dirname + '/browser'));
+app.use('/', browserifyMiddleware(__dirname + '/browser'));
 
 app.use('/style', express.static(__dirname + '/style'));
 
@@ -40,20 +41,24 @@ app.get('/file', function (req, res) {
   }
 });
 
-function pluginFilename(plugin) {
-  var moduleName = plugin.module[0] == '.' ? process.cwd() + '/' + plugin.module: plugin.module;
-  var path = require.resolve(moduleName);
-  return path;
-}
-
 app.get('/plugin', function (req, res) {
-  debug('loading plugin', plugin.name);
+  debug('loading plugin', req.query.module);
 
-  var path = pluginFilename(plugin);
+  var bundle = browserify({
+    debug: true
+  });
 
-  return fs.readFile(path, 'utf-8').then(content => {
-    res.set('Content-Type', 'text/javascript');
-    res.send(wrap(path, '_hochAddPlugin(function(module, exports) {\n', content, '\n})'));
+  bundle.require(req.query.module, {expose: 'plugin'});
+
+  bundle.bundle((err, buf) => {
+    if (err) {
+      debug('error', err && err.stack || err);
+      res.status(500).send();
+    } else {
+      var source = buf.toString();
+      res.set('Content-Type', 'text/javascript');
+      res.send(wrap(undefined, `${req.query.fn}(${JSON.stringify(req.query.module)}, `, source, `);`));
+    }
   });
 });
 
@@ -63,37 +68,46 @@ app.listen = function() {
   server.listen.apply(server, arguments);
 };
 
-var files = new Files('hoch.json', {
-  refresh(version, files) {
-    connections.forEach(c => c.refresh(version, files));
-  }
+var firstConnection;
+var somethingConnected = new Promise(resolve => {
+  firstConnection = resolve;
 });
 
-var plugin = {
-  name: 'log',
-  module: './log'
-};
+
+var files = new Files('hoch.json', {
+  refresh() {
+    connections.forEach(refreshConnection);
+  }
+});
 
 var connections = [];
 var connectionId = 0;
 
 var runner = {
-  run(client, ids) {
-    return Promise.all(connections.map(c => c.run(client, ids))).then(() => {});
+  run(client, module, ids) {
+    return somethingConnected.then(() => {
+      return Promise.all(connections.map(c => c.run(client, module, ids)));
+    }).then(() => {});
   }
+}
+
+function refreshConnection(connection) {
+  return connection.refresh(files.version, files.files).then(result => {
+    firstConnection();
+    return result;
+  }).catch(e => {
+    debug('could not refresh', e && e.stack || e);
+  });
 }
 
 runnerIo.on('connection', function (socket) {
   var connection = new Connection(connectionId++, socket);
   connections.push(connection);
+  disconnect(socket, connection, connections);
 
   if (files.loaded) {
-    connection.refresh(files.version, files.files);
+    refreshConnection(connection);
   }
-
-  connection.plugin(plugin.name);
-
-  disconnect(socket, connection, connections);
 });
 
 var clients = [];

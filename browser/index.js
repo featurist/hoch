@@ -10,7 +10,7 @@ var files = {};
 var require;
 var requireCache;
 var version;
-var plugin = {};
+var plugins = {};
 
 window._hochAddFile = function(id, fn) {
   var file = files[id];
@@ -18,12 +18,9 @@ window._hochAddFile = function(id, fn) {
   file.resolve();
 }
 
-window._hochAddPlugin = function(p) {
-  var exports = {};
-  var module = {exports: exports};
-  p(module, exports);
-  plugin.run = module.exports;
-  plugin.resolve();
+window._hochAddPlugin = function(module, pluginRequire) {
+  plugins[module].run = pluginRequire('plugin');
+  plugins[module].resolve();
 };
 
 respond(socket, 'refresh', function (msg) {
@@ -44,7 +41,6 @@ respond(socket, 'refresh', function (msg) {
   });
 
   return Promise.all(Object.keys(files).map(k => files[k].loaded)).then(() => {
-    console.log('modules', modules);
     require = createRequire(modules);
 
     debug('version', version);
@@ -86,23 +82,32 @@ function send(msg) {
   socket.emit('data', msg);
 }
 
-respond(socket, 'run', function (msg) {
-  debug('run', msg.ids);
+function plugin(module) {
+  var plugin = plugins[module];
 
-  msg.ids.forEach(id => delete requireCache[id]);
-  plugin.run(function () {
-    msg.ids.forEach(id => require(id));
-  }, send);
-});
-
-respond(socket, 'plugin', function (msg) {
-  debug('plugin', msg.name);
-  plugin.loaded = new Promise(function (resolve) {
-    plugin.resolve = resolve;
-  });
-  addScript('/plugin');
+  if (!plugin) {
+    debug('loading plugin', module);
+    plugin = plugins[module] = {};
+    plugin.loaded = new Promise(function (resolve) {
+      plugin.resolve = resolve;
+    }).then(function () {
+      debug('loaded plugin', module);
+      return plugin.run;
+    });
+    addScript('/plugin?fn=_hochAddPlugin&module=' + encodeURIComponent(module));
+  }
 
   return plugin.loaded;
+}
+
+respond(socket, 'run', function (msg) {
+  debug('run', msg.ids);
+  return plugin(msg.module).then(function (run) {
+    msg.ids.forEach(id => delete requireCache[id]);
+    return run(function () {
+      msg.ids.forEach(id => require(id));
+    }, send);
+  });
 });
 
 function createRequire(modules) {

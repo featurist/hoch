@@ -3,6 +3,8 @@
 var mdeps = require('module-deps');
 var extend = require('lowscore/extend');
 var debug = require('debug')('hoch');
+var browserifyBuiltins = require('browserify/lib/builtins');
+var sanitize = require('htmlescape').sanitize;
 
 class Dependencies {
   constructor(options) {
@@ -24,11 +26,22 @@ class Dependencies {
   deps(filenames) {
     return new Promise((resolve, reject) => {
       var files = [];
+      var mopts = extend({
+        cache: this.cache,
+        packageCache: this.packageCache,
+        fileCache: this.fileCache,
+        modules: browserifyBuiltins,
+        transform: [],
+        extensions: []
+      }, this.options);
+
+      mopts.extensions.unshift('.js', '.json');
 
       var md = mdeps(extend({
           cache: this.cache,
           packageCache: this.packageCache,
-          fileCache: this.fileCache
+          fileCache: this.fileCache,
+          modules: browserifyBuiltins
       }, this.options))
 
       filenames.forEach((filename, i) => {
@@ -41,6 +54,9 @@ class Dependencies {
       })
 
       md.on('data', function (file) {
+        if (/\.json$/.test(file.file) && !/^module\.exports=/.test(file.source)) {
+          file.source = 'module.exports=' + sanitize(file.source);
+        }
         files.push(file);
       });
 

@@ -3,7 +3,7 @@ var path = require('path');
 var request = require('./request');
 
 var paths = process.argv.slice(2).map(p => path.resolve(p))
-request(io, 'run', {module: './log', ids: paths}).then(function () {
+request(io, 'run', {module: './mochaPlugin', ids: paths}).then(function () {
   io.close();
 });
 

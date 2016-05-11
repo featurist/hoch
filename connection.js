@@ -45,15 +45,15 @@ module.exports = class {
     });
   }
 
-  run(client, ids) {
+  run(client, module, ids) {
     if (this.refreshing) {
-      return this.refreshing.then(() => this.run(client, ids));
+      return this.refreshing.then(() => this.run(client, module, ids));
     } else if (this.running) {
-      return this.running.then(() => this.run(client, ids));
+      return this.running.then(() => this.run(client, module, ids));
     } else {
       this.client = client;
       this.debug('running', ids);
-      return this.running = request(this.socket, 'run', {ids: ids}).then(() => {
+      return this.running = request(this.socket, 'run', {module: module, ids: ids}).then(() => {
         this.running = undefined;
         this.debug('ran', ids);
       });

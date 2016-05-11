@@ -16,11 +16,13 @@
     "convert-source-map": "1.2.0",
     "debug": "2.2.0",
     "express": "4.13.4",
+    "htmlescape": "1.1.1",
     "lowscore": "1.8.0",
     "mocha": "2.4.5",
     "module-deps": "4.0.5",
     "multi-glob": "1.0.1",
     "socket.io": "1.4.6",
-    "socket.io-client": "1.4.6"
+    "socket.io-client": "1.4.6",
+    "through": "2.3.8"
   }
 }

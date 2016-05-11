@@ -30,18 +30,18 @@ module.exports = class extends events.EventEmitter {
         debug('version', this.version);
         this.files = indexBy(this.watcher.files, 'id');
 
-        server.refresh(this.version, this.files);
+        server.refresh();
 
         if (this.refreshInterval) {
           this.refreshInterval.start();
         }
+
+        this.loaded = true;
       });
 
       this.watcher.on('error', function (error) {
         console.error(error);
       });
-
-      this.loaded = true;
     }).catch(error => {
       console.error(error && error.stack || error);
     });
