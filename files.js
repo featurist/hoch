@@ -1,42 +1,27 @@
 "use strict";
 
 var fs = require('fs-promise');
+var diff = require('./diff');
 var Watcher = require('./watcher');
-var interval = require('./interval');
 var debug = require('debug')('hoch');
-var indexBy = require('lowscore/indexBy');
 var events = require('events');
 var hash = require('./hash');
+var values = require('lowscore/values');
 
 module.exports = class extends events.EventEmitter {
   constructor(configFilename, server) {
     super();
     this.files = [];
+    this.server = server;
 
     fs.readFile(configFilename, 'utf-8').then(configString => {
       var config = JSON.parse(configString);
 
-      this.watcher = new Watcher(config.pattern || config.patterns, config.browserify || {});
+      this.watcher = new Watcher(config.browserify || {});
       this.watcher.start();
 
-      if (config.refreshInterval) {
-        this.refreshInterval = interval(() => {
-          this.watcher.refresh();
-        }, config.refreshInterval)
-      }
-
       this.watcher.on('change', () => {
-        this.version = computeVersions(this.watcher.files);
-        debug('version', this.version);
-        this.files = indexBy(this.watcher.files, 'id');
-
-        server.refresh();
-
-        if (this.refreshInterval) {
-          this.refreshInterval.start();
-        }
-
-        this.loaded = true;
+        this.refresh();
       });
 
       this.watcher.on('error', function (error) {
@@ -45,6 +30,25 @@ module.exports = class extends events.EventEmitter {
     }).catch(error => {
       console.error(error && error.stack || error);
     });
+  }
+
+  refresh() {
+    this.version = computeVersions(values(this.watcher.files));
+    debug('version', this.version);
+    var diffs = diff(this.files, this.watcher.files, 'version');
+    this.files = this.watcher.files;
+
+    return this.server.refresh(diffs);
+  }
+
+  addFiles(filenames) {
+    return this.watcher.addFiles(filenames).then(() => {
+      return this.refresh();
+    });
+  }
+
+  close() {
+    this.watcher.close();
   }
 };
 

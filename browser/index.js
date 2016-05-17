@@ -1,5 +1,4 @@
 var diff = require('../diff');
-var indexBy = require('lowscore/indexBy');
 var debug = require('debug')('hoch');
 var respond = require('../respond');
 
@@ -8,7 +7,7 @@ var socket = window.io('/runner');
 var modules = {};
 var files = {};
 var require;
-var requireCache;
+var requireCache = {};
 var version;
 var plugins = {};
 
@@ -24,6 +23,7 @@ window._hochAddPlugin = function(module, pluginRequire) {
 };
 
 respond(socket, 'refresh', function (msg) {
+  debug('refresh', msg.version);
   version = msg.version;
   var diffs = diff(files, msg.files, 'version');
 
@@ -78,7 +78,11 @@ function updateFile(file) {
   addFile(file);
 }
 
-function send(msg) {
+function send(name) {
+  var msg = {
+    name: name,
+    arguments: Array.prototype.slice.call(arguments, 1)
+  };
   socket.emit('data', msg);
 }
 
@@ -100,10 +104,15 @@ function plugin(module) {
   return plugin.loaded;
 }
 
+function clearRequireCache() {
+  Object.keys(requireCache).forEach(k => delete requireCache[k]);
+}
+
 respond(socket, 'run', function (msg) {
   debug('run', msg.ids);
   return plugin(msg.module).then(function (run) {
-    msg.ids.forEach(id => delete requireCache[id]);
+    clearRequireCache();
+
     return run(function () {
       msg.ids.forEach(id => require(id));
     }, send);

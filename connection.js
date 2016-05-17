@@ -3,6 +3,7 @@
 var debug = require('debug')('hoch');
 var respond = require('./respond');
 var request = require('./request');
+var useragent = require('useragent');
 
 module.exports = class {
   constructor(id, socket) {
@@ -25,16 +26,22 @@ module.exports = class {
   }
 
   refresh(version, files) {
-    if (this.refreshing) {
-      return this.refreshing.then(() => this.refresh(version, files));
-    } else if (this.running) {
-      return this.running.then(() => this.refresh(version, files));
+    if (version != this.version) {
+      if (this.refreshing) {
+        return this.refreshing.then(() => this.refresh(version, files));
+      } else if (this.running) {
+        return this.running.then(() => this.refresh(version, files));
+      } else {
+        this.debug('refreshing', version);
+        return this.refreshing = request(this.socket, 'refresh', {files: summariseFiles(files), version: version}).then(() => {
+          this.refreshing = undefined;
+          this.debug('refreshed');
+          this.version = version;
+        });
+      }
     } else {
-      this.debug('refreshing', version);
-      return this.refreshing = request(this.socket, 'refresh', {files: summariseFiles(files), version: version}).then(() => {
-        this.refreshing = undefined;
-        this.debug('refreshed');
-      });
+      this.debug('not refreshing, browser already at version', version);
+      return Promise.resolve();
     }
   }
 
@@ -61,7 +68,7 @@ module.exports = class {
   }
 
   name() {
-    return this.id + ':' + this.socket.request.headers['user-agent'];
+    return this._name || (this._name = this.id + ':' + useragent.parse(this.socket.request.headers['user-agent']).toAgent());
   }
 
   disconnect() {

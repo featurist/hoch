@@ -15,15 +15,14 @@ class Dependencies {
     this.options = options;
   }
 
-  changed(filenames) {
-    filenames.forEach(filename => {
-      debug('refreshing', filename);
-      var id = this.idForFilename[filename];
-      delete this.cache[id];
-    });
+  changed(filename) {
+    debug('refreshing', filename);
+    var id = this.idForFilename[filename];
+    delete this.cache[id];
   }
 
   deps(filenames) {
+    debug('dependencies for', filenames);
     return new Promise((resolve, reject) => {
       var files = [];
       var mopts = extend({

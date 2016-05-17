@@ -9,81 +9,78 @@ var glob = require('multi-glob').glob;
 var pathUtils = require('path');
 var minimatch = require('minimatch');
 var indexBy = require('lowscore/indexBy');
+var promiseLimit = require('promise-limit');
 
 class Watcher extends events.EventEmitter {
-  constructor(pattern, options) {
+  constructor(options) {
     super();
-    this.pattern = (typeof pattern === 'string'
-      ? [pattern]
-      : pattern).map(p => pathUtils.resolve(p));
-    this.files = [];
-    this.watchedFiles = {};
-    this.options = options;
+    this.files = {};
+    this.entryFiles = {};
+    this.refreshLimit = promiseLimit(1);
+    this.dependencies = new Dependencies(options);
   }
 
   start() {
-    this.watcher = chokidar.watch(this.pattern, {persistent: true, ignoreInitial: true});
+    this.watcher = chokidar.watch([], {persistent: true});
 
-    this.watcher.on('add', path => {
-      var fullpath = pathUtils.resolve(path);
-      this.watchedFiles[fullpath] = true;
-      this.refreshFiles(Object.keys(this.watchedFiles));
-    });
     this.watcher.on('change', path => {
       var fullpath = pathUtils.resolve(path);
-      this.dependencies.changed([fullpath]);
-      this.refreshFiles(Object.keys(this.watchedFiles));
+      debug('changed', fullpath);
+      this.dependencies.changed(fullpath);
+      this.refresh({emit: true});
     });
     this.watcher.on('unlink', path => {
       var fullpath = pathUtils.resolve(path);
-      this.dependencies.changed([fullpath]);
-      delete this.watchedFiles[fullpath];
-      this.refreshFiles(Object.keys(this.watchedFiles));
-    });
-
-    debug('watching', this.pattern);
-    this.refresh();
-  }
-
-  isEntryFile(file) {
-    return this.pattern.some(p => minimatch(file, p));
-  }
-
-  refreshFiles(files) {
-    this.dependencies.deps(files).then(newList => {
-      var diffs = diff(indexBy(this.files, 'id'), indexBy(newList, 'id'));
-      this.files = newList;
-
-      var toAdd = diffs.added.map(i => i.id).filter(p => !this.isEntryFile(p))
-      this.watcher.add(toAdd);
-      var toRemove = diffs.removed.map(i => i.id).filter(p => !this.isEntryFile(p))
-      this.watcher.unwatch(toRemove);
-
-      this.emit('change', {
-        added: diffs.added,
-        removed: diffs.removed,
-        modified: files,
-        files: this.files
-      });
-    }).catch(error => {
-      debug('error', error && error.stack || error);
-      this.emit('error', error);
+      debug('removed', fullpath);
+      this.dependencies.changed(fullpath);
+      this.refresh({emit: true});
     });
   }
 
-  refresh() {
-    this.dependencies = new Dependencies(this.options);
-    glob(this.pattern, (error, results) => {
-      if (error) {
+  addFiles(filenames) {
+    debug('add files', filenames);
+    filenames.forEach(f => this.entryFiles[f] = true);
+    this.watcher.add(filenames);
+    return this.refresh();
+  }
+
+  refresh(options) {
+    debug('refresh');
+    var emit = typeof options === 'object' && options.hasOwnProperty('emit')? options.emit: undefined;
+
+    return this.refreshLimit(() => {
+      var files = Object.keys(this.entryFiles);
+
+      return this.dependencies.deps(files).then(newList => {
+        var newFiles = indexBy(newList, 'id');
+        var diffs = diff(this.files, newFiles);
+        this.files = newFiles;
+
+        var toAdd = diffs.added.map(i => i.id)
+        this.watcher.add(toAdd);
+        var toRemoveExceptEntryFiles = diffs.removed.map(i => i.id).filter(p => !this.entryFiles[p])
+        this.watcher.unwatch(toRemoveExceptEntryFiles);
+
+        var change = {
+          added: diffs.added,
+          removed: diffs.removed,
+          modified: files,
+          files: this.files
+        };
+
+        if (emit) {
+          this.emit('change', change);
+        }
+
+        return change;
+      }).catch(error => {
+        debug('error', error && error.stack || error);
         this.emit('error', error);
-      } else {
-        results.forEach(f => this.watchedFiles[f] = true);
-        this.refreshFiles(results);
-      }
+      });
     });
   }
 
-  stop() {
+  close() {
     this.watcher.close();
   }
 }

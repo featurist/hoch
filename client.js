@@ -2,6 +2,7 @@
 
 var debug = require('debug')('hoch');
 var respond = require('./respond');
+var useragent = require('useragent');
 
 module.exports = class {
   constructor(id, socket, server) {
@@ -24,7 +25,7 @@ module.exports = class {
   }
 
   name() {
-    return 'client (' + this.id + ') ' + this.socket.request.headers['user-agent'];
+    return this._name || (this._name = 'client (' + this.id + '):' + useragent.parse(this.socket.request.headers['user-agent']).toAgent());
   }
 
   disconnect() {

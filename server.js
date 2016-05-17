@@ -1,4 +1,5 @@
-var app = require('./app');
+var argv = require('yargs').argv;
+var app = require('./app')();
 
 var port = process.env.PORT || 5000;
 

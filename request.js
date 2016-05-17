@@ -16,16 +16,26 @@ module.exports = function(socket, type, msg) {
       reject(msg);
     };
 
-    msg.id = id;
-    socket.emit(type, msg);
+    socket.emit(type, {id: id, value: msg});
   });
 };
 
+function findRequest(msg) {
+  if (typeof msg.id !== 'undefined') {
+    return requests[msg.id];
+  } else {
+    console.error('no id on response', msg);
+  }
+}
+
 function addHandler(socket, type) {
   socket.on(type + ':response', msg => {
-    requests[msg.id].resolve(msg);
+    findRequest(msg).resolve(msg.value);
   });
+
   socket.on(type + ':error', msg => {
-    requests[msg.id].reject(msg);
+    var error = new Error(msg.value.message);
+    error.stack = msg.value.stack;
+    findRequest(msg).reject(error);
   });
 }
