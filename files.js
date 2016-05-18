@@ -7,6 +7,7 @@ var debug = require('debug')('hoch');
 var events = require('events');
 var hash = require('./hash');
 var values = require('lowscore/values');
+var findConfig = require('find-config');
 
 module.exports = class extends events.EventEmitter {
   constructor(configFilename, server) {
@@ -14,21 +15,19 @@ module.exports = class extends events.EventEmitter {
     this.files = [];
     this.server = server;
 
-    fs.readFile(configFilename, 'utf-8').then(configString => {
-      var config = JSON.parse(configString);
+    var config = findConfig.require('hoch', {dir: undefined});
 
-      this.watcher = new Watcher(config.browserify || {});
-      this.watcher.start();
+    debug('config', config);
 
-      this.watcher.on('change', () => {
-        this.refresh();
-      });
+    this.watcher = new Watcher(config.browserify || {});
+    this.watcher.start();
 
-      this.watcher.on('error', function (error) {
-        console.error(error);
-      });
-    }).catch(error => {
-      console.error(error && error.stack || error);
+    this.watcher.on('change', () => {
+      this.refresh();
+    });
+
+    this.watcher.on('error', function (error) {
+      console.error(error);
     });
   }
 
