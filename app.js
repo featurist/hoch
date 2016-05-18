@@ -9,6 +9,8 @@ var debug = require('debug')('hoch');
 var Connection = require('./connection');
 var Client = require('./client');
 var connections = require('./connections');
+var bodyParser = require('body-parser');
+var Nightmare = require('nightmare');
 
 module.exports = function () {
   var app = express();
@@ -17,6 +19,7 @@ module.exports = function () {
   var clientIo = io.of('/client');
   var runnerIo = io.of('/runner');
 
+  app.use(bodyParser.json());
   app.use('/', browserifyMiddleware(__dirname + '/browser'));
 
   app.use('/style', express.static(__dirname + '/style'));
@@ -63,10 +66,39 @@ module.exports = function () {
     });
   });
 
+  app.post('/shorturl', function (req, res) {
+    var id = shorturls.create(req.body.url);
+    res.send({
+      url: `/u/${id}`
+    });
+  });
+
+  app.get('/u/:id', function (req, res) {
+    var id = req.params.id;
+    var url = shorturls.find(id);
+
+    if (url) {
+      res.redirect(url);
+    } else {
+      res.status(404).send('no such short URL ' + id);
+    }
+  });
+
   app.use('/mocha', express.static(__dirname + '/node_modules/mocha'));
 
-  app.listen = function() {
-    return server.listen.apply(server, arguments);
+  app.listen = function(port, cb) {
+    return server.listen(port, function (err) {
+      if (err) {
+        cb(err);
+      } else {
+        nightmare.goto(`http://localhost:${port}/`).then(() => {
+          debug('started browser');
+        }).catch(e => {
+          debug('could not start browser', e);
+        });
+        cb();
+      }
+    });
   };
 
   var files = new Files('hoch.json', {
@@ -79,15 +111,35 @@ module.exports = function () {
   var runner = {
     run(client, module, ids) {
       debug('run', module, ids);
-      return files.addFiles(ids).then(() => {
-        if (runners.length) {
+      return runnerConnected.then(() => {
+        return files.addFiles(ids).then(() => {
           return Promise.all(runners.map(c => c.run(client, module, ids)));
-        } else {
-          throw new Error('no browsers running');
-        }
+        });
       });
     }
   }
+
+  var shorturls = {
+    id: 1,
+    urls: {},
+    ids: {},
+
+    create(url) {
+      var id = this.ids[url];
+
+      if (!id) {
+        id = this.id++;
+        this.urls[id] = url;
+        this.ids[url] = id;
+      }
+
+      return id;
+    },
+
+    find(id) {
+      return this.urls[Number(id)];
+    }
+  };
 
   function refreshConnection(connection) {
     return connection.refresh(files.version, files.files).catch(e => {
@@ -95,12 +147,16 @@ module.exports = function () {
     });
   }
 
+  var nightmare = Nightmare();
+  var setRunnerConnected;
+  var runnerConnected = new Promise(resolve => setRunnerConnected = resolve);
+
   var runners = connections(runnerIo, (socket, id) => {
     var connection = new Connection(id, socket);
     if (files.version) {
       refreshConnection(connection);
     }
-    app.emit('runner connected');
+    setRunnerConnected();
     return connection;
   });
 

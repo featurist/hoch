@@ -1,13 +1,6 @@
-var removeColorEscapes = require('./removeColorEscapes');
+var run = require('./run');
+var baseurl = 'http://localhost:5000/';
 
-module.exports = function(run, send) {
-  var oldLog = console.log;
-  console.log = function() {
-    oldLog.apply(console, arguments);
-    var args = removeColorEscapes(Array.prototype.slice.apply(arguments));
-    args.unshift('log');
-    send.apply(undefined, args);
-  };
-  run();
-  console.log = oldLog;
-}
+run(baseurl, './plugins/log', process.argv.slice(2), function (data) {
+  console.log.apply(console, data.arguments);
+});

@@ -1,14 +1,27 @@
-var io = require('socket.io-client')('http://localhost:5000/client');
+var urlUtils = require('url');
+var socketIo = require('socket.io-client');
 var path = require('path');
 var request = require('./request');
+var makeShortUrl = require('./makeShortUrl');
+var colors = require('colors/safe');
 
-var paths = process.argv.slice(2).map(p => path.resolve(p))
-request(io, 'run', {module: './log', ids: paths}).then(function () {
-  io.close();
-}).catch(e => {
-  console.log(e && e.stack || e);
-});
+module.exports = function (baseurl, module, args, ondata) {
+  var io = socketIo(urlUtils.resolve(baseurl, '/client'));
+  var filenames = args.map(p => path.resolve(p))
+  var shortUrl = makeShortUrl(baseurl, module, filenames);
 
-io.on('data', function (msg) {
-  console.log.apply(console, msg.arguments);
-});
+  if (ondata) {
+    io.on('data', ondata);
+  }
+
+  return request(io, 'run', {module: module, ids: filenames}).then(function () {
+    io.close();
+    return shortUrl.then(function (url) {
+      console.log();
+      console.log('    url: ', colors.cyan(url));
+      console.log();
+    });
+  }).catch(e => {
+    console.log(e && e.stack || e);
+  });
+};

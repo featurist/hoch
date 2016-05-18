@@ -54,7 +54,7 @@ respond(socket, 'refresh', function (msg) {
   });
 });
 
-function runFromUrl() {
+function start() {
   var search = window.location.search.substring(1)
   var params = querystring.parse(search);
 
@@ -63,6 +63,11 @@ function runFromUrl() {
   if (params.module && params.filenames) {
     ready.then(function () {
       return run(params.module, params.filenames);
+    });
+    respond(socket, 'run', function () { /* don't run anything */ });
+  } else {
+    respond(socket, 'run', function (msg) {
+      return run(msg.module, msg.ids);
     });
   }
 }
@@ -140,10 +145,6 @@ function run(module, filenames) {
   });
 }
 
-respond(socket, 'run', function (msg) {
-  return run(msg.module, msg.ids);
-});
-
 function createRequire(modules) {
   requireCache = {};
   return outer(modules, requireCache, []);
@@ -185,4 +186,4 @@ function outer (modules, cache, entry) {
     return newRequire;
 }
 
-runFromUrl();
+start();

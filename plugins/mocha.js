@@ -1,17 +1,21 @@
 require('mocha/support/browser-entry');
-console.log('this is mocha plugin');
+var reporter = require('./mochaReporter');
 
 module.exports = function(run, send) {
   createMochaDiv();
 
   var m = new window.Mocha({
-    reporter: 'html'
+    reporter: reporter(send)
   });
   m.suite.emit('pre-require', global, null, m);
   run();
   return new Promise(function (resolve) {
     m.run(function (errors) {
-      console.log(errors);
+      if (errors) {
+        console.log('%cfailure: ', 'color: red', errors + ' errors');
+      } else {
+        console.log('%csuccess!', 'color: green');
+      }
       resolve();
     });
   });
