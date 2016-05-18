@@ -1,6 +1,7 @@
 var diff = require('../diff');
 var debug = require('debug')('hoch');
 var respond = require('../respond');
+var querystring = require('querystring');
 
 var socket = window.io('/runner');
 
@@ -10,6 +11,10 @@ var require;
 var requireCache = {};
 var version;
 var plugins = {};
+var setReady;
+var ready = new Promise(function (resolve) {
+  setReady = resolve;
+});
 
 window._hochAddFile = function(id, fn) {
   var file = files[id];
@@ -43,9 +48,24 @@ respond(socket, 'refresh', function (msg) {
   return Promise.all(Object.keys(files).map(k => files[k].loaded)).then(() => {
     require = createRequire(modules);
 
+    setReady();
+
     debug('version', version);
   });
 });
+
+function runFromUrl() {
+  var search = window.location.search.substring(1)
+  var params = querystring.parse(search);
+
+  params.filenames = params.filenames ? (params.filenames instanceof Array ? params.filenames : [params.filenames]) : undefined;
+
+  if (params.module && params.filenames) {
+    ready.then(function () {
+      return run(params.module, params.filenames);
+    });
+  }
+}
 
 function addScript(src) {
   var script = document.createElement('script');
@@ -108,15 +128,20 @@ function clearRequireCache() {
   Object.keys(requireCache).forEach(k => delete requireCache[k]);
 }
 
-respond(socket, 'run', function (msg) {
-  debug('run', msg.ids);
-  return plugin(msg.module).then(function (run) {
+function run(module, filenames) {
+  debug('run', filenames);
+
+  return plugin(module).then(function (run) {
     clearRequireCache();
 
     return run(function () {
-      msg.ids.forEach(id => require(id));
+      filenames.forEach(id => require(id));
     }, send);
   });
+}
+
+respond(socket, 'run', function (msg) {
+  return run(msg.module, msg.ids);
 });
 
 function createRequire(modules) {
@@ -159,3 +184,5 @@ function outer (modules, cache, entry) {
     // Override the current require with this new one
     return newRequire;
 }
+
+runFromUrl();
