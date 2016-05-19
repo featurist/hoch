@@ -14,14 +14,14 @@ module.exports = function (baseurl, module, args, ondata) {
     io.on('data', ondata);
   }
 
-  return request(io, 'run', {module: module, ids: filenames}).then(function () {
+  return request(io, 'run', {module: module, ids: filenames}).catch(function (e) {
+    console.log(e && e.stack || e);
+  }).then(function () {
     io.close();
     return shortUrl.then(function (url) {
       console.log();
       console.log('    url: ', colors.cyan(url));
       console.log();
     });
-  }).catch(e => {
-    console.log(e && e.stack || e);
   });
 };

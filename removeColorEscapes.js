@@ -1,6 +1,6 @@
 module.exports = function (args) {
-  if (args.length) {
-    var message = args[0];
+  var message = args[0];
+  if (typeof message === 'string') {
     var numberOfEscapes = message.split('%c').length - 1;
 
     var withoutColors = args.slice();

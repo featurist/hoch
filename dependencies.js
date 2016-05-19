@@ -5,6 +5,7 @@ var extend = require('lowscore/extend');
 var debug = require('debug')('hoch');
 var browserifyBuiltins = require('browserify/lib/builtins');
 var sanitize = require('htmlescape').sanitize;
+var insertGlobals = require('insert-module-globals');
 
 class Dependencies {
   constructor(options) {
@@ -34,14 +35,10 @@ class Dependencies {
         extensions: []
       }, this.options);
 
+      mopts.transform.push('insert-module-globals');
       mopts.extensions.unshift('.js', '.json');
 
-      var md = mdeps(extend({
-          cache: this.cache,
-          packageCache: this.packageCache,
-          fileCache: this.fileCache,
-          modules: browserifyBuiltins
-      }, this.options))
+      var md = mdeps(mopts);
 
       filenames.forEach((filename, i) => {
         debug('loading', filename);
