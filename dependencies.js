@@ -32,10 +32,11 @@ class Dependencies {
         fileCache: this.fileCache,
         modules: browserifyBuiltins,
         transform: [],
+        globalTransform: [],
         extensions: []
       }, this.options);
 
-      mopts.transform.push('insert-module-globals');
+      mopts.globalTransform.push('insert-module-globals');
       mopts.extensions.unshift('.js', '.json');
 
       var md = mdeps(mopts);

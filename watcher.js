@@ -1,5 +1,6 @@
 "use strict";
 
+var fs = require('fs-promise');
 var chokidar = require('chokidar');
 var events = require('events');
 var debug = require('debug')('hoch');
@@ -37,11 +38,32 @@ class Watcher extends events.EventEmitter {
     });
   }
 
+  ensureFilesExist(filenames) {
+    function fileExists(f) {
+      return fs.exists(f).then(exists => {
+        return {
+          filename: f,
+          exists: exists
+        };
+      });
+    }
+
+    return Promise.all(filenames.map(fileExists)).then(exists => {
+      var dontExist = exists.filter(f => !f.exists);
+
+      if (dontExist.length) {
+        throw new Error(`file ${dontExist[0].filename} doesn't exist`)
+      }
+    });
+  }
+
   addFiles(filenames) {
-    debug('add files', filenames);
-    filenames.forEach(f => this.entryFiles[f] = true);
-    this.watcher.add(filenames);
-    return this.refresh();
+    return this.ensureFilesExist(filenames).then(() => {
+      debug('add files', filenames);
+      filenames.forEach(f => this.entryFiles[f] = true);
+      this.watcher.add(filenames);
+      return this.refresh();
+    });
   }
 
   refresh(options) {

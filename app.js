@@ -11,6 +11,8 @@ var Client = require('./client');
 var connections = require('./connections');
 var bodyParser = require('body-parser');
 var Nightmare = require('nightmare');
+var removeColorEscapes = require('./removeColorEscapes');
+var debugBrowser = require('debug')('hoch:test:browser');
 
 module.exports = function () {
   var app = express();
@@ -103,7 +105,9 @@ module.exports = function () {
         }).catch(e => {
           debug('could not start browser', e);
         });
-        cb();
+        if (cb) {
+          cb();
+        }
       }
     });
   };
@@ -155,6 +159,11 @@ module.exports = function () {
   }
 
   var nightmare = Nightmare();
+  nightmare.on('console', function() {
+    var args = removeColorEscapes(Array.prototype.slice.call(arguments, 1));
+    debugBrowser.apply(debugBrowser, args);
+  });
+
   var setRunnerConnected;
   var runnerConnected = new Promise(resolve => setRunnerConnected = resolve);
 

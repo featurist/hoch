@@ -19,9 +19,9 @@ module.exports = function (baseurl, module, args, ondata) {
   }).then(function () {
     io.close();
     return shortUrl.then(function (url) {
-      console.log();
-      console.log('    url: ', colors.cyan(url));
-      console.log();
+      process.stderr.write('\n');
+      process.stderr.write(`    url: ${colors.cyan(url)}\n`);
+      process.stderr.write('\n');
     });
   });
 };

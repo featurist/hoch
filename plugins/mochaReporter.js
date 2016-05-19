@@ -25,7 +25,10 @@ exports = module.exports = function(send) {
 
     runner.on('fail', function(test, err) {
       console.log('%cfail', 'color: red', test.fullTitle());
-      console.error(err && err.stack || err);
+      console.error(err);
+      if (err.stack) {
+        console.error(err.stack);
+      }
       send('fail', cleanTest(test), errorJSON(err));
     });
 
