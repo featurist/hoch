@@ -45,6 +45,13 @@ module.exports = function () {
     }
   });
 
+  app.get('/files', function (req, res) {
+    res.send({
+      files: files.files,
+      version: files.version
+    });
+  });
+
   app.get('/plugin', function (req, res) {
     debug('loading plugin', req.query.module);
 
@@ -109,11 +116,11 @@ module.exports = function () {
   });
 
   var runner = {
-    run(client, module, ids) {
-      debug('run', module, ids);
+    run(client, module, filenames) {
+      debug('run', module, filenames);
       return runnerConnected.then(() => {
-        return files.addFiles(ids).then(() => {
-          return Promise.all(runners.map(c => c.run(client, module, ids)));
+        return files.addFiles(filenames).then(() => {
+          return Promise.all(runners.map(c => c.run(client, module, filenames)));
         });
       });
     }

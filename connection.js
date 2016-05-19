@@ -52,17 +52,17 @@ module.exports = class {
     });
   }
 
-  run(client, module, ids) {
+  run(client, module, filenames) {
     if (this.refreshing) {
-      return this.refreshing.then(() => this.run(client, module, ids));
+      return this.refreshing.then(() => this.run(client, module, filenames));
     } else if (this.running) {
-      return this.running.then(() => this.run(client, module, ids));
+      return this.running.then(() => this.run(client, module, filenames));
     } else {
       this.client = client;
-      this.debug('running', ids);
-      return this.running = request(this.socket, 'run', {module: module, ids: ids}).then(() => {
+      this.debug('running', filenames);
+      return this.running = request(this.socket, 'run', {module: module, filenames: filenames}).then(() => {
         this.running = undefined;
-        this.debug('ran', ids);
+        this.debug('ran', filenames);
       });
     }
   }

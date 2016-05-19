@@ -2,8 +2,7 @@ var diff = require('../diff');
 var debug = require('debug')('hoch');
 var respond = require('../respond');
 var querystring = require('querystring');
-
-var socket = window.io('/runner');
+var httpism = require('httpism');
 
 var modules = {};
 var files = {};
@@ -11,10 +10,6 @@ var require;
 var requireCache = {};
 var version;
 var plugins = {};
-var setReady;
-var ready = new Promise(function (resolve) {
-  setReady = resolve;
-});
 
 window._hochAddFile = function(id, fn) {
   var file = files[id];
@@ -27,7 +22,7 @@ window._hochAddPlugin = function(module, pluginRequire) {
   plugins[module].resolve();
 };
 
-respond(socket, 'refresh', function (msg) {
+function refresh(msg) {
   debug('refresh', msg.version);
   version = msg.version;
   var diffs = diff(files, msg.files, 'version');
@@ -48,28 +43,45 @@ respond(socket, 'refresh', function (msg) {
   return Promise.all(Object.keys(files).map(k => files[k].loaded)).then(() => {
     require = createRequire(modules);
 
-    setReady();
-
     debug('version', version);
   });
-});
+}
 
 function start() {
   var search = window.location.search.substring(1)
   var params = querystring.parse(search);
 
+  if (params.module && params.filenames) {
+    runOnce(params);
+  } else {
+    startContinuousRunner();
+  }
+}
+
+function runOnce(params) {
   params.filenames = params.filenames ? (params.filenames instanceof Array ? params.filenames : [params.filenames]) : undefined;
 
-  if (params.module && params.filenames) {
-    ready.then(function () {
-      return run(params.module, params.filenames);
-    });
-    respond(socket, 'run', function () { /* don't run anything */ });
-  } else {
-    respond(socket, 'run', function (msg) {
-      return run(msg.module, msg.ids);
-    });
+  httpism.get('/files').then(function (response) {
+    return refresh(response.body);
+  }).then(function () {
+    return run(params);
+  });
+}
+
+function startContinuousRunner() {
+  function send(name) {
+    var msg = {
+      name: name,
+      arguments: Array.prototype.slice.call(arguments, 1)
+    };
+    socket.emit('data', msg);
   }
+
+  var socket = window.io('/runner');
+  respond(socket, 'run', function (msg) {
+    return run(msg, send);
+  });
+  respond(socket, 'refresh', refresh);
 }
 
 function addScript(src) {
@@ -103,14 +115,6 @@ function updateFile(file) {
   addFile(file);
 }
 
-function send(name) {
-  var msg = {
-    name: name,
-    arguments: Array.prototype.slice.call(arguments, 1)
-  };
-  socket.emit('data', msg);
-}
-
 function plugin(module) {
   var plugin = plugins[module];
 
@@ -133,15 +137,15 @@ function clearRequireCache() {
   Object.keys(requireCache).forEach(k => delete requireCache[k]);
 }
 
-function run(module, filenames) {
-  debug('run', filenames);
+function run(msg, send) {
+  debug('run', msg.filenames);
 
-  return plugin(module).then(function (run) {
+  return plugin(msg.module).then(function (run) {
     clearRequireCache();
 
     return run(function () {
-      filenames.forEach(id => require(id));
-    }, send);
+      msg.filenames.forEach(id => require(id));
+    }, send || function () {});
   });
 }
 

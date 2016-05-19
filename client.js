@@ -11,7 +11,7 @@ module.exports = class {
 
     this.debug('connection');
 
-    respond(this.socket, 'run', msg => server.run(this, msg.module, msg.ids));
+    respond(this.socket, 'run', msg => server.run(this, msg.module, msg.filenames));
   }
 
   debug() {

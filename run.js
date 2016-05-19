@@ -14,7 +14,7 @@ module.exports = function (baseurl, module, args, ondata) {
     io.on('data', ondata);
   }
 
-  return request(io, 'run', {module: module, ids: filenames}).catch(function (e) {
+  return request(io, 'run', {module: module, filenames: filenames}).catch(function (e) {
     console.log(e && e.stack || e);
   }).then(function () {
     io.close();
