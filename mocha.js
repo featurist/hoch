@@ -5,7 +5,7 @@ var testEvents = new EventEmitter();
 
 var Spec = require('mocha/lib/reporters/spec');
 
-var reporter = new Spec(testEvents);
+new Spec(testEvents);
 
 run(baseurl, './plugins/mocha', process.argv.slice(2), function (data) {
   var args = [data.name].concat(data.arguments);

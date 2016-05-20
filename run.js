@@ -6,7 +6,7 @@ var makeShortUrl = require('./makeShortUrl');
 var colors = require('colors/safe');
 
 module.exports = function (baseurl, module, args, ondata) {
-  var io = socketIo(urlUtils.resolve(baseurl, '/client'));
+  var io = socketIo(urlUtils.resolve(baseurl, '/client'), {path: '/.hoch/socket.io'});
   var filenames = args.map(p => path.resolve(p))
   var shortUrl = makeShortUrl(baseurl, module, filenames);
 

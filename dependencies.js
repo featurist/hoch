@@ -13,7 +13,8 @@ class Dependencies {
     this.packageCache = {};
     this.fileCache = {};
     this.idForFilename = {};
-    this.options = options;
+    this.options = options.browserify;
+    this.events = options.events;
   }
 
   changed(filename) {
@@ -36,7 +37,7 @@ class Dependencies {
         extensions: []
       }, this.options);
 
-      mopts.globalTransform.push('insert-module-globals');
+      mopts.globalTransform.push(insertGlobals);
       mopts.extensions.unshift('.js', '.json');
 
       var md = mdeps(mopts);
@@ -57,7 +58,13 @@ class Dependencies {
         files.push(file);
       });
 
-      md.on('transform', function (transform, file) {
+      var transformed = {};
+
+      md.on('transform', (transform, file) => {
+        if (!transformed[file]) {
+          this.events.emit('compile', file);
+          transformed[file] = true;
+        }
         debug('compiling', file);
       });
 

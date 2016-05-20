@@ -1,25 +1,19 @@
 "use strict";
 
-var fs = require('fs-promise');
 var diff = require('./diff');
 var Watcher = require('./watcher');
 var debug = require('debug')('hoch');
 var events = require('events');
 var hash = require('./hash');
 var values = require('lowscore/values');
-var findConfig = require('find-config');
 
 module.exports = class extends events.EventEmitter {
-  constructor(configFilename, server) {
+  constructor(config, server) {
     super();
     this.files = [];
     this.server = server;
+    this.watcher = new Watcher({events: server.events, browserify: config.browserify || {}});
 
-    var config = findConfig.require('hoch', {dir: undefined});
-
-    debug('config', config);
-
-    this.watcher = new Watcher(config.browserify || {});
     this.watcher.start();
 
     this.watcher.on('change', () => {

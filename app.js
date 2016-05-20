@@ -10,27 +10,33 @@ var Connection = require('./connection');
 var Client = require('./client');
 var connections = require('./connections');
 var bodyParser = require('body-parser');
-var Nightmare = require('nightmare');
-var removeColorEscapes = require('./removeColorEscapes');
-var debugBrowser = require('debug')('hoch:test:browser');
+var findConfig = require('find-config');
+var pathUtils = require('path');
+var Headless = require('./headless');
 
 module.exports = function () {
   var app = express();
   var server = http.Server(app);
-  var io = require('socket.io')(server);
+  var io = require('socket.io')(server, {path: '/.hoch/socket.io'});
   var clientIo = io.of('/client');
   var runnerIo = io.of('/runner');
 
-  app.use(bodyParser.json());
-  app.use('/', browserifyMiddleware(__dirname + '/browser'));
+  var configPaths = findConfig.obj('hoch', {dir: undefined, module: true});
+  var config = require(configPaths.path);
+  debug('config', config);
 
-  app.use('/style', express.static(__dirname + '/style'));
+  app.set('view engine', 'ejs');
 
-  app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
+  var hochApp = express();
+
+  hochApp.use(bodyParser.json());
+  hochApp.use('/', browserifyMiddleware(__dirname + '/browser'));
+
+  hochApp.get('/', (req, res) => {
+    res.render(__dirname + '/views/index.ejs', {stylesheets: config.stylesheets || [], scripts: config.scripts || []});
   });
 
-  app.get('/file', function (req, res) {
+  hochApp.get('/file', function (req, res) {
     var id = req.query.id;
     var version = req.query.version;
     var file = files.files[id];
@@ -47,14 +53,14 @@ module.exports = function () {
     }
   });
 
-  app.get('/files', function (req, res) {
+  hochApp.get('/files', function (req, res) {
     res.send({
       files: files.files,
       version: files.version
     });
   });
 
-  app.get('/plugin', function (req, res) {
+  hochApp.get('/plugin', function (req, res) {
     debug('loading plugin', req.query.module);
 
     var bundle = browserify({
@@ -75,14 +81,14 @@ module.exports = function () {
     });
   });
 
-  app.post('/shorturl', function (req, res) {
+  hochApp.post('/shorturl', function (req, res) {
     var id = shorturls.create(req.body.url);
     res.send({
-      url: `/u/${id}`
+      url: `/.hoch/u/${id}`
     });
   });
 
-  app.get('/u/:id', function (req, res) {
+  hochApp.get('/u/:id', function (req, res) {
     var id = req.params.id;
     var url = shorturls.find(id);
 
@@ -93,18 +99,15 @@ module.exports = function () {
     }
   });
 
-  app.use('/mocha', express.static(__dirname + '/node_modules/mocha'));
-
   app.listen = function(port, cb) {
     return server.listen(port, function (err) {
       if (err) {
         cb(err);
       } else {
-        nightmare.goto(`http://localhost:${port}/`).then(() => {
-          debug('started browser');
-        }).catch(e => {
-          debug('could not start browser', e);
-        });
+        if (headless) {
+          headless.start();
+        }
+
         if (cb) {
           cb();
         }
@@ -112,7 +115,8 @@ module.exports = function () {
     });
   };
 
-  var files = new Files('hoch.json', {
+  var files = new Files(config, {
+    events: app,
     refresh(changes) {
       app.emit('changes', changes);
       return Promise.all(runners.map(refreshConnection));
@@ -158,12 +162,7 @@ module.exports = function () {
     });
   }
 
-  var nightmare = Nightmare();
-  nightmare.on('console', function() {
-    var args = removeColorEscapes(Array.prototype.slice.call(arguments, 1));
-    debugBrowser.apply(debugBrowser, args);
-  });
-
+  var headless = config.headless !== false ? new Headless() : undefined;
   var setRunnerConnected;
   var runnerConnected = new Promise(resolve => setRunnerConnected = resolve);
 
@@ -184,6 +183,18 @@ module.exports = function () {
     server.close();
     files.close();
   };
+
+  app.use('/.hoch', hochApp);
+
+  if (config.static) {
+    Object.keys(config.static).forEach(path => {
+      var dir = config.static[path];
+
+      var fullDir = pathUtils.resolve(configPaths.dir, dir);
+      debug('static', `${path} => ${fullDir}`);
+      app.use(path, express.static(fullDir));
+    });
+  }
 
   return app;
 };

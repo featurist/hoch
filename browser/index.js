@@ -61,7 +61,7 @@ function start() {
 function runOnce(params) {
   params.filenames = params.filenames ? (params.filenames instanceof Array ? params.filenames : [params.filenames]) : undefined;
 
-  httpism.get('/files').then(function (response) {
+  httpism.get('/.hoch/files').then(function (response) {
     return refresh(response.body);
   }).then(function () {
     return run(params);
@@ -77,7 +77,7 @@ function startContinuousRunner() {
     socket.emit('data', msg);
   }
 
-  var socket = window.io('/runner');
+  var socket = window.io('/runner', {path: '/.hoch/socket.io', transports: ['websocket', 'polling']});
   respond(socket, 'run', function (msg) {
     return run(msg, send);
   });
@@ -92,7 +92,7 @@ function addScript(src) {
 }
 
 function addFile(file) {
-  file.script = addScript('/file?id=' + encodeURIComponent(file.id) + '&version=' + file.version);
+  file.script = addScript('/.hoch/file?id=' + encodeURIComponent(file.id) + '&version=' + file.version);
   file.loaded = new Promise(function (resolve) {
     file.resolve = resolve;
   });
@@ -127,7 +127,7 @@ function plugin(module) {
       debug('loaded plugin', module);
       return plugin.run;
     });
-    addScript('/plugin?fn=_hochAddPlugin&module=' + encodeURIComponent(module));
+    addScript('/.hoch/plugin?fn=_hochAddPlugin&module=' + encodeURIComponent(module));
   }
 
   return plugin.loaded;

@@ -3,8 +3,8 @@ var querystring = require('querystring');
 var httpism = require('httpism');
 
 module.exports = function (baseurl, module, filenames) {
-  return httpism.post(urlUtils.resolve(baseurl, '/shorturl'), {
-    url: '/?' + querystring.stringify({
+  return httpism.post(urlUtils.resolve(baseurl, '/.hoch/shorturl'), {
+    url: '/.hoch?' + querystring.stringify({
       module: module,
       filenames: filenames
     })

@@ -16,6 +16,7 @@
     "combine-source-map": "0.7.2",
     "convert-source-map": "1.2.0",
     "debug": "2.2.0",
+    "ejs": "2.4.1",
     "express": "4.13.4",
     "find-config": "1.0.0",
     "htmlescape": "1.1.1",
