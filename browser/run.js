@@ -23,14 +23,18 @@ function areAllFilesLoaded() {
   return normalise(window._hochFiles) == normalise(filesLoadedSoFar);
 }
 
-var modules = {};
+var files = [];
 
-window._hochAddFile = function(filename, fn, deps) {
-  filesLoadedSoFar.push(filename);
-  modules[filename] = [fn, deps];
+window._hochAddFile = function(id, fn, deps) {
+  filesLoadedSoFar.push(id);
+  files.push({
+    id: id,
+    fn: fn,
+    deps: deps
+  });
 
   if (areAllFilesLoaded()) {
-    setFilesLoaded(requires.create(modules));
+    setFilesLoaded(requires.create(files));
   }
 }
 

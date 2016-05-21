@@ -30,6 +30,9 @@ module.exports = class extends events.EventEmitter {
     this.files = this.watcher.files;
 
     debug('version', this.version);
+
+    var diffs = diff(this.files, this.watcher.files, 'version');
+    return this.server.refresh(diffs);
   }
 
   addFiles(filenames) {

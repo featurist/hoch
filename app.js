@@ -39,21 +39,17 @@ module.exports = function () {
   hochApp.use('/', browserifyMiddleware(__dirname + '/browser'));
 
   hochApp.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
+    res.sendFile(__dirname + '/views/index.html');
   });
 
   hochApp.get('/run', (req, res) => {
     var scriptFiles = Object.keys(files.files).map(f => files.files[f]);
 
-    if (req.query.version == files.version) {
-      cacheHard(res);
-    }
-
     res.render(__dirname + '/views/run.ejs', {
       stylesheets: config.stylesheets || [],
       scripts: config.scripts || [],
       files: scriptFiles || [],
-      module: req.query.module
+      plugin: req.query.module
     });
   });
 

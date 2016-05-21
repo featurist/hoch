@@ -17,8 +17,8 @@
   </script>
   <% } %>
 
-  <% if (module) { %>
-    <script type="text/javascript" src="/.hoch/plugin?fn=_hochAddPlugin&module=<%= encodeURIComponent(module) %>"></script>
+  <% if (plugin) { %>
+    <script type="text/javascript" src="/.hoch/plugin?fn=_hochAddPlugin&module=<%= encodeURIComponent(plugin) %>"></script>
   <% } %>
 
   <% files.forEach(function (file) { %>
