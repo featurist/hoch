@@ -14,6 +14,12 @@ var findConfig = require('find-config');
 var pathUtils = require('path');
 var Headless = require('./headless');
 
+function cacheHard(res) {
+  var seconds = 31557600;
+  res.set('Cache-Control', 'public, max-age=' + seconds);
+  res.set('Expires', new Date(Date.now() + seconds * 1000).toGMTString());
+}
+
 module.exports = function () {
   var app = express();
   var server = http.Server(app);
@@ -33,7 +39,22 @@ module.exports = function () {
   hochApp.use('/', browserifyMiddleware(__dirname + '/browser'));
 
   hochApp.get('/', (req, res) => {
-    res.render(__dirname + '/views/index.ejs', {stylesheets: config.stylesheets || [], scripts: config.scripts || []});
+    res.sendFile(__dirname + '/index.html');
+  });
+
+  hochApp.get('/run', (req, res) => {
+    var scriptFiles = Object.keys(files.files).map(f => files.files[f]);
+
+    if (req.query.version == files.version) {
+      cacheHard(res);
+    }
+
+    res.render(__dirname + '/views/run.ejs', {
+      stylesheets: config.stylesheets || [],
+      scripts: config.scripts || [],
+      files: scriptFiles || [],
+      module: req.query.module
+    });
   });
 
   hochApp.get('/file', function (req, res) {
@@ -44,6 +65,7 @@ module.exports = function () {
     if (file) {
       if (file.version == version) {
         res.set('Content-Type', 'text/javascript');
+        cacheHard(res);
         res.send(stitch(file));
       } else {
         res.status(404).send('file exists, but the wrong version was requested, expected ' + file.version);
@@ -60,25 +82,45 @@ module.exports = function () {
     });
   });
 
+  var plugins = {};
+
+  function plugin(module) {
+    var cached = plugins[module];
+
+    if (cached) {
+      return Promise.resolve(cached);
+    } else {
+      return new Promise((resolve, reject) => {
+        var bundle = browserify({
+          debug: true
+        });
+
+        bundle.require(module, {expose: 'plugin'});
+
+        bundle.bundle((err, buf) => {
+          if (err) {
+            reject(err);
+          } else {
+            var src = buf.toString();
+            plugins[module] = src;
+            resolve(src);
+          }
+        });
+      });
+    }
+  }
+
   hochApp.get('/plugin', function (req, res) {
     debug('loading plugin', req.query.module);
 
-    var bundle = browserify({
-      debug: true
-    });
-
-    bundle.require(req.query.module, {expose: 'plugin'});
-
-    bundle.bundle((err, buf) => {
-      if (err) {
-        debug('error', err && err.stack || err);
-        res.status(500).send();
-      } else {
-        var source = buf.toString();
-        res.set('Content-Type', 'text/javascript');
-        res.send(wrap(undefined, `${req.query.fn}(${JSON.stringify(req.query.module)}, `, source, `);`));
-      }
-    });
+    plugin(req.query.module).then(source => {
+      res.set('Content-Type', 'text/javascript');
+      cacheHard(res);
+      res.send(wrap(undefined, `${req.query.fn}(${JSON.stringify(req.query.module)}, `, source, `);`));
+    }).catch(err => {
+      debug('error', err && err.stack || err);
+      res.status(500).send();
+    })
   });
 
   hochApp.post('/shorturl', function (req, res) {
@@ -105,7 +147,7 @@ module.exports = function () {
         cb(err);
       } else {
         if (headless) {
-          headless.start();
+          headless.start(`http://localhost:${port}/.hoch`);
         }
 
         if (cb) {
@@ -168,9 +210,6 @@ module.exports = function () {
 
   var runners = connections(runnerIo, (socket, id) => {
     var connection = new Connection(id, socket);
-    if (files.version) {
-      refreshConnection(connection);
-    }
     setRunnerConnected();
     return connection;
   });

@@ -4,7 +4,7 @@ var httpism = require('httpism');
 
 module.exports = function (baseurl, module, filenames) {
   return httpism.post(urlUtils.resolve(baseurl, '/.hoch/shorturl'), {
-    url: '/.hoch?' + querystring.stringify({
+    url: '/.hoch/run?' + querystring.stringify({
       module: module,
       filenames: filenames
     })

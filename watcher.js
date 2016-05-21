@@ -31,7 +31,7 @@ class Watcher extends events.EventEmitter {
       var fullpath = pathUtils.resolve(path);
       debug('changed', fullpath);
       this.dependencies.changed(fullpath);
-      this.delayedRefresh({emit: true});
+      this.delayedRefresh(this.entryFiles, {emit: true});
     });
     this.watcher.on('unlink', path => {
       var fullpath = pathUtils.resolve(path);
@@ -60,7 +60,7 @@ class Watcher extends events.EventEmitter {
     });
   }
 
-  extantEntryFiles() {
+  extantFiles(files) {
     function fileExists(f) {
       return fs.exists(f).then(exists => {
         return {
@@ -70,7 +70,7 @@ class Watcher extends events.EventEmitter {
       });
     }
 
-    return Promise.all(Object.keys(this.entryFiles).map(fileExists)).then(exists => {
+    return Promise.all(files.map(fileExists)).then(exists => {
       return exists.filter(f => f.exists).map(f => f.filename);
     });
   }
@@ -78,18 +78,22 @@ class Watcher extends events.EventEmitter {
   addFiles(filenames) {
     return this.ensureFilesExist(filenames).then(() => {
       debug('add files', filenames);
-      filenames.forEach(f => this.entryFiles[f] = true);
+      var entryFiles = JSON.parse(JSON.stringify(this.entryFiles));
+      filenames.forEach(f => entryFiles[f] = true);
       this.watcher.add(filenames);
-      return this.refresh();
+      return this.refresh(entryFiles).then(() => {
+        this.entryFiles = entryFiles;
+      });
     });
   }
 
-  refresh(options) {
+  refresh(entryFiles, options) {
     debug('refresh');
     var emit = typeof options === 'object' && options.hasOwnProperty('emit')? options.emit: undefined;
+    var startTime = Date.now();
 
     return this.refreshLimit(() => {
-      return this.extantEntryFiles().then(files => {
+      return this.extantFiles(Object.keys(entryFiles)).then(files => {
         return this.dependencies.deps(files).then(newList => {
           var newFiles = indexBy(newList, 'id');
           var diffs = diff(this.files, newFiles);
@@ -97,8 +101,8 @@ class Watcher extends events.EventEmitter {
 
           var toAdd = diffs.added.map(i => i.id)
           this.watcher.add(toAdd);
-          var toRemoveExceptEntryFiles = diffs.removed.map(i => i.id).filter(p => !this.entryFiles[p])
-          this.watcher.unwatch(toRemoveExceptEntryFiles);
+          var toRemove = diffs.removed.map(i => i.id)
+          this.watcher.unwatch(toRemove);
 
           var change = {
             added: diffs.added,
@@ -113,9 +117,12 @@ class Watcher extends events.EventEmitter {
 
           return change;
         });
+      }).then(() => {
+        debug('compiled in ' + (Date.now() - startTime) + 'ms');
       }).catch(error => {
         debug('error', error && error.stack || error);
         this.emit('error', error);
+        throw error;
       });
     });
   }

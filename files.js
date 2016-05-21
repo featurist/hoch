@@ -27,11 +27,9 @@ module.exports = class extends events.EventEmitter {
 
   refresh() {
     this.version = computeVersions(values(this.watcher.files));
-    debug('version', this.version);
-    var diffs = diff(this.files, this.watcher.files, 'version');
     this.files = this.watcher.files;
 
-    return this.server.refresh(diffs);
+    debug('version', this.version);
   }
 
   addFiles(filenames) {

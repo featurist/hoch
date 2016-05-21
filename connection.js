@@ -1,7 +1,6 @@
 "use strict";
 
 var debug = require('debug')('hoch');
-var respond = require('./respond');
 var request = require('./request');
 var useragent = require('useragent');
 
@@ -32,10 +31,11 @@ module.exports = class {
       } else if (this.running) {
         return this.running.then(() => this.refresh(version, files));
       } else {
-        this.debug('refreshing', version);
+        var startTime = Date.now();
+        this.debug('refreshing browser', version);
         return this.refreshing = request(this.socket, 'refresh', {files: summariseFiles(files), version: version}).then(() => {
           this.refreshing = undefined;
-          this.debug('refreshed');
+          this.debug('refreshed browser in ' + (Date.now() - startTime) + 'ms');
           this.version = version;
         });
       }
@@ -59,10 +59,11 @@ module.exports = class {
       return this.running.then(() => this.run(client, module, filenames));
     } else {
       this.client = client;
+      var startTime = Date.now();
       this.debug('running', filenames);
       return this.running = request(this.socket, 'run', {module: module, filenames: filenames}).then(() => {
         this.running = undefined;
-        this.debug('ran', filenames);
+        this.debug('ran in ' + (Date.now() - startTime) + 'ms');
       });
     }
   }

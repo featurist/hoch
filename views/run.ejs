@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title></title>
+  <% stylesheets.forEach(function (css) { %>
+    <link type="text/css" href="<%= css%>" rel="stylesheet"></link>
+  <% }) %>
+</head>
+<body>
+  <script src="/.hoch/socket.io/socket.io.js"></script>
+  <script src="/.hoch/run.js"></script>
+
+  <% if (files.length) { %>
+  <script>
+    var _hochFiles = <%- JSON.stringify(files.map(function (f) { return f.id; })) %>;
+  </script>
+  <% } %>
+
+  <% if (module) { %>
+    <script type="text/javascript" src="/.hoch/plugin?fn=_hochAddPlugin&module=<%= encodeURIComponent(module) %>"></script>
+  <% } %>
+
+  <% files.forEach(function (file) { %>
+    <script type="text/javascript" src="/.hoch/file?id=<%= encodeURIComponent(file.id) %>&version=<%= file.version %>" async></script>
+  <% }) %>
+</body>
+</html>

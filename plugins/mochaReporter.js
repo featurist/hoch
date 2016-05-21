@@ -52,7 +52,7 @@ exports = module.exports = function(send) {
  * @return {Object}
  */
 function cleanTest(test) {
-  var clone = pick(test, "title", "body", "async", "sync", "_timeout", "_slow", "_enableTimeouts", "timedOut", "_trace", "_retries", "_currentRetry", "pending", "type", "file");
+  var clone = pick(test, "title", "body", "async", "sync", "_timeout", "_slow", "_enableTimeouts", "timedOut", "_retries", "_currentRetry", "pending", "type", "file");
   clone._fullTitle = test.fullTitle();
   return clone;
 }
