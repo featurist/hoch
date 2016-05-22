@@ -1,3 +1,5 @@
+var serializeError = require('./serializeError');
+
 module.exports = function(socket, type, handler) {
   socket.on(type, function (msg) {
     function respond(type, result) {
@@ -24,10 +26,7 @@ module.exports = function(socket, type, handler) {
 
 function serialise(obj) {
   if (obj instanceof Error) {
-    return {
-      message: obj.message,
-      stack: obj.stack
-    }
+    return serializeError(obj);
   } else {
     return obj;
   }

@@ -1,6 +1,7 @@
-var requires = require('./requires');
+var createRequire = require('./createRequire');
 var querystring = require('querystring');
 var debug = require('debug')('hoch');
+var serializeError = require('../serializeError');
 
 var setPluginLoaded;
 var pluginLoaded = new Promise(function (resolve) {
@@ -34,7 +35,7 @@ window._hochAddFile = function(id, fn, deps) {
   });
 
   if (areAllFilesLoaded()) {
-    setFilesLoaded(requires.create(files));
+    setFilesLoaded(createRequire(files));
   }
 }
 
@@ -58,6 +59,18 @@ function sendData(name) {
   post(msg);
 }
 
+function run(plugin, filenames, _require) {
+  function requireFilenames() {
+    filenames.forEach(id => _require(id));
+  }
+
+  try {
+    return Promise.resolve(plugin(requireFilenames, sendData));
+  } catch(e) {
+    return Promise.reject(e);
+  }
+}
+
 function start() {
   Promise.all([
     filesLoaded,
@@ -73,14 +86,18 @@ function start() {
     debug('run', filenames);
     post({hoch: 'start run'});
 
-    requires.clear();
+    _require.clear();
 
-    return plugin(function () {
-      filenames.forEach(id => _require(id));
-    }, sendData || function () {}).then(function () {
-      debug('run finished in ' + (Date.now() - startTime) + 'ms');
-      post({hoch: 'finish run'});
-    });
+    try {
+      return run(plugin, filenames, _require).then(function () {
+        debug('run finished in ' + (Date.now() - startTime) + 'ms');
+        post({hoch: 'finish run'});
+      }).catch(function (e) {
+        post({hoch: 'error', error: serializeError(e)});
+      });
+    } catch (e) {
+      post({hoch: 'error', error: serializeError(e)});
+    }
   });
 }
 

@@ -1,7 +1,7 @@
 "use strict";
 
 var debug = require('debug')('hoch');
-var debugBrowser = require('debug')('hoch:test:browser');
+var debugBrowser = require('debug')('hoch:browser');
 var Nightmare = require('nightmare');
 var removeColorEscapes = require('./removeColorEscapes');
 

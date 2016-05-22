@@ -157,7 +157,6 @@ module.exports = function () {
     events: app,
     refresh(changes) {
       app.emit('changes', changes);
-      return Promise.all(runners.map(refreshConnection));
     }
   });
 

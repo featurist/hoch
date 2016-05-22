@@ -1,6 +1,8 @@
 var requestId = 0;
 var requests = {};
-var types = {};
+var deserializeError = require('./deserializeError');
+
+var socketTypes = new WeakMap();
 
 module.exports = function(socket, type, msg) {
   var request = {};
@@ -30,15 +32,20 @@ function findRequest(msg) {
 }
 
 function addHandler(socket, type) {
+  var types = socketTypes.get(socket);
+
+  if (!types) {
+    types = {};
+    socketTypes.set(socket, types);
+  }
+
   if (!types[type]) {
     socket.on(type + ':response', msg => {
       findRequest(msg).resolve(msg.value);
     });
 
     socket.on(type + ':error', msg => {
-      var error = new Error(msg.value.message);
-      error.stack = msg.value.stack;
-      findRequest(msg).reject(error);
+      findRequest(msg).reject(deserializeError(msg.value));
     });
 
     types[type] = true;

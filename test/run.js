@@ -2,7 +2,7 @@ var ioClient = require('socket.io-client');
 var request = require('../request');
 
 module.exports = function(module, filenames) {
-  var io = ioClient('http://localhost:4000/client');
+  var io = ioClient('http://localhost:4000/client', {path: '/.hoch/socket.io'});
   var results = [];
 
   io.on('data', function (msg) {
